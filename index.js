@@ -47,13 +47,14 @@ function generateCharacterList() {
     return characterList.join('\n');
 }
 
+// Update the INSTRUCTIONS_TEMPLATE to be more explicit and visible to the AI
 const INSTRUCTIONS_TEMPLATE = `
 -----
 
-!!! IMPORTANT TTS INSTRUCTIONS !!!
+!!! IMPORTANT TTS INSTRUCTIONS - YOU MUST FOLLOW THESE EXACTLY !!!
 
-The following are instructions for inserting TTS markers into your responses. You will ALWAYS insert these TTS markers in the text.
-Read them VERY carefully and follow them to the letter:
+You MUST insert TTS markers into your responses following these instructions.
+This is a REQUIRED feature. Without proper markers, the TTS will not work correctly.
 
 AVAILABLE CHARACTERS AND VOICE FILES:
 {{CHARACTER_LIST}}
@@ -84,15 +85,14 @@ EXAMPLE:
 
 "§c:Innkeeper|male_gruff.mp3|e6:0.3,e8:0.7§Elara! Don't just stand there, help our guests with their bags!" *§n|e2:0.2,e8:0.8§The night promises to be interesting as you sense tension between the two.*
 
-When inserting these markers:
-- Place them exactly where the narration, action, or dialogue begins
+IMPORTANT RULES:
+- You MUST place markers exactly where the narration, action, or dialogue begins
 - Use the complete format for the first appearance of each character
 - For subsequent appearances, you can use shorter versions like §c:CharacterName§ if the voice and emotions remain the same
 - Don't place markers inside quotes unless the marker itself is for dialogue
-- Use appropriate emotion values based on the context
-- If a character in a marker is not found from the given list above, it will default to Narrator + default.mp3
-- If a given voice file is not found from the given list above / doesn't correspond with the character, it will default to default.mp3
-- If the only available character is Narrator, just use it for everything
+- EVERY piece of text must have an appropriate marker
+- If a character is not found, use Narrator + default.mp3
+- If a voice file is not found, use default.mp3
 
 -----
 `;
@@ -106,16 +106,61 @@ let instructionsInjected = false;
 let hookInstalled = false;
 
 function injectInstructions(data) {
-    if (!extension_settings[extensionName].enabled) return;
+    // Skip if injection is disabled or already injected
+    if (!extension_settings[extensionName].enabled || instructionsInjected) {
+        return;
+    }
+
+    // Get the current context
+    const context = getContext();
     
-    console.log(`${extensionName}: Injecting TTS instructions`);
+    // Verify we have access to the required properties
+    if (!context || !context.chatId || !Array.isArray(data.messages)) {
+        console.log("TTSSorcery: Cannot inject instructions - missing context or messages array");
+        return;
+    }
+
+    // Build character list for the instructions
+    let characterList = "Narrator (default.mp3)";
     
-    data.chat.push({
-        role: 'user',
-        content: getCurrentInstructions()
-    });
+    // Add character voices from extension settings
+    if (extension_settings[extensionName].voices) {
+        Object.entries(extension_settings[extensionName].voices).forEach(([voiceId, voice]) => {
+            if (voiceId !== 'narrator') {
+                characterList += `\n${voice.name} (`;
+                
+                // Add available audio files for this character
+                if (voice.audioFiles && Object.keys(voice.audioFiles).length > 0) {
+                    characterList += Object.keys(voice.audioFiles).join(', ');
+                } else {
+                    characterList += "default.mp3";
+                }
+                
+                characterList += ")";
+            }
+        });
+    }
     
+    // Create the instructions with the character list
+    const instructions = INSTRUCTIONS_TEMPLATE.replace('{{CHARACTER_LIST}}', characterList);
+    
+    // Add the instructions to the system message
+    const systemMessageIndex = data.messages.findIndex(m => m.role === 'system');
+    
+    if (systemMessageIndex >= 0) {
+        // Append to existing system message
+        data.messages[systemMessageIndex].content += instructions;
+    } else {
+        // Create a new system message
+        data.messages.unshift({
+            role: 'system',
+            content: instructions
+        });
+    }
+    
+    // Mark as injected to avoid duplicate injections
     instructionsInjected = true;
+    console.log("TTSSorcery: TTS instructions injected successfully");
 }
 
 function extractTTSInfo(text) {
@@ -229,81 +274,54 @@ function fixFormatting(text) {
     return processedText;
 }
 
-function installStreamHook() {
-    if (hookInstalled || !extension_settings[extensionName].enabled) return;
-    if (!extension_settings[extensionName].auto_generation) return;
-    
-    console.log(`${extensionName}: Installing stream hook`);
-    
-    const originalOnProgressStreaming = streamingProcessor.onProgressStreaming;
-    
-    let lastProcessedLength = 0;
-    let textBuffer = '';
-    let lastProcessedParagraphEnd = 0;
-    let allSegments = [];
-    let currentStreamingMessageId = null;
-    
-    streamingProcessor.onProgressStreaming = function(messageId, text, isFinal) {
-        // Reset state if this is a new message
-        if (currentStreamingMessageId !== messageId) {
-            console.log(`${extensionName}: New message detected, resetting state`);
-            lastProcessedLength = 0;
-            textBuffer = '';
-            lastProcessedParagraphEnd = 0;
-            allSegments = [];
-            currentStreamingMessageId = messageId;
+function installStreamHook(data) {
+    if (!extension_settings[extensionName].enabled || !extension_settings[extensionName].auto_generation || hookInstalled) {
+        return;
+    }
+
+    // Reset the marker state for new messages
+    if (data.type === 'start') {
+        resetTtsQueue(false);
+        hookInstalled = true;
+        console.log("TTSSorcery: Stream hook installed");
+    }
+
+    // Process streaming tokens for TTS markers
+    if (data.token) {
+        // Process token if it contains TTS markers
+        if (data.token.includes('§')) {
+            console.log(`TTSSorcery: Found marker in token: ${data.token}`);
             
-            // Reset TTS queue when a new message starts
+            // Don't process the whole message yet, wait for more tokens
+            // The complete processing will happen in the message handler
+        }
+    }
+}
+
+// Add event handler for completed messages to ensure markers are processed
+eventSource.on(event_types.MESSAGE_RECEIVED, (data) => {
+    if (!extension_settings[extensionName].enabled) {
+        return;
+    }
+    
+    // When a new message is received (not streaming), check if it has markers and process it
+    if (data.is_user === false && data.mes) {
+        const markers = extractTTSInfo(data.mes);
+        
+        if (markers.length > 0) {
+            console.log(`TTSSorcery: Found ${markers.length} markers in completed message`);
+            
+            // Only process automatically if auto_generation is enabled
             if (extension_settings[extensionName].auto_generation) {
                 resetTtsQueue(true);
+                processSegments(data.mes, markers);
+                processTtsQueue();
             }
+        } else {
+            console.log("TTSSorcery: No markers found in completed message");
         }
-        
-        console.log(`Stream update: ${text.length} chars, isFinal: ${isFinal}`);
-        
-        // Only process the new content
-        if (text.length > lastProcessedLength) {
-            const newContent = text.substring(lastProcessedLength);
-            console.log(`New content (${newContent.length} chars): ${newContent.substring(0, 50)}...`);
-            
-            // Process only the new content for TTS markers
-            const markers = extractTTSInfo(newContent);
-            if (markers.length > 0) {
-                console.log(`New TTS markers found in latest content:`);
-                logTTSInfo(markers);
-                
-                // Position adjustments for markers relative to the entire message
-                markers.forEach(marker => {
-                    marker.position += lastProcessedLength;
-                });
-                
-                // Process the segments from only the new content
-                const segments = processSegments(newContent, markers);
-                
-                // Update for next streaming update
-                textBuffer = text;
-                lastProcessedLength = text.length;
-            } else {
-                // Still update the processed length even if no markers found
-                textBuffer = text;
-                lastProcessedLength = text.length;
-            }
-        }
-        
-        if (isFinal) {
-            console.log(`${extensionName}: Message generation complete`);
-            currentStreamingMessageId = null;
-            textBuffer = '';
-            lastProcessedLength = 0;
-            lastProcessedParagraphEnd = 0;
-            allSegments = [];
-        }
-        
-        return originalOnProgressStreaming.call(this, messageId, text, isFinal);
-    };
-    
-    hookInstalled = true;
-}
+    }
+});
 
 let ttsQueue = [];
 let isPlayingTts = false;
