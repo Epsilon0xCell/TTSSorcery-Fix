@@ -825,7 +825,7 @@ function loadAndPlaySegment(index) {
     
     updateTTSSorceryPlaybackUI();
     
-    fetch("http://api.zyphra.com/v1/audio/text-to-speech", {
+    fetch("https://api.zyphra.com/v1/audio/text-to-speech", {
         method: "POST",
         headers: {
             "X-API-Key": apiKey,
@@ -983,7 +983,7 @@ function preloadTtsSegment(index) {
     
     console.log(`Preloading TTS segment ${index+1}: ${segment.character} - ${segment.text.substring(0, 30)}${segment.text.length > 30 ? '...' : ''}`);
     
-    fetch("http://api.zyphra.com/v1/audio/text-to-speech", {
+    fetch("https://api.zyphra.com/v1/audio/text-to-speech", {
         method: "POST",
         headers: {
             "X-API-Key": apiKey,
@@ -2432,8 +2432,6 @@ function completeCurrentAudioJob() {
     updateTTSSorceryPlaybackUI();
 }
 
-eventSource.on(event_types.CHAT_COMPLETION_PROMPT_READY, injectInstructions);
-eventSource.on(event_types.STREAM_TOKEN_RECEIVED, installStreamHook);
 
 function onTTSSorceryNarrateClick(event) {
     const messageBlock = $(event.target).closest('.mes');
