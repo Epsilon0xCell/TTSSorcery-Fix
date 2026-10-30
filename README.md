@@ -66,7 +66,7 @@ This is included in every dialogue zonos tts generates
 This extension has lots of bugs and almost 80% depends on you having a smart model. The regex it uses to detect characters can break if the model isnt smart enough to put it in the right placing. This has only been tested with models like Claude 3.7, Claude 3.5, Claude Opus, Gemini Pro, Claude Haiku so keep that in mind. It also only works with chat completion for now.
 ## Repository notes (verified 2026-10-30)
 
-- This repo is the ttssorceryfix variant of TTSSorcery for SillyTavern. Files: index.js, style.css, manifest.json, model_instructions.md.
+- This repo is the TTSSorcery-Fix variant of TTSSorcery for SillyTavern. Files: index.js, style.css, manifest.json, model_instructions.md.
 - model_instructions.md contains the standalone copy of the TTS marker instructions template used by the extension.
 - manifest.json declares js index.js and css style.css, and both files are present. Earlier revisions declared style.css in the manifest but did not include the file, so the stylesheet would have failed to load.
 - index.js passes node --check. It requires SillyTavern host modules (extensions.js, script.js, power-user.js, openai.js, lib.js), so it cannot run standalone outside SillyTavern.
