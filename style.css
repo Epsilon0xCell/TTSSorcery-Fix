@@ -1,3 +1,9 @@
+/* I keep these class names in step with the markup index.js builds for
+   the settings panel. The manifest declares this file, and SillyTavern
+   loads it by that declaration, so a renamed class here does not fail
+   loudly, it just leaves that part of the panel unstyled. The tab rules
+   below set the state the panel opens in, before any click reaches the
+   switchTab function in index.js: every tab hidden, the API tab shown. */
 .TTSSorcery-voice-item {
     margin-bottom: 15px;
     border: 1px solid var(--border-color);
