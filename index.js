@@ -28,7 +28,24 @@ const defaultSettings = {
     max_preload: 5,
     segment_gap: 0.5,
     auto_generation: false,
-    force_neutral_narrator: false
+    force_neutral_narrator: false,
+    // Presets are real settings, not a shape the preset handlers hope
+    // exists: the handlers below read and push onto this array, and
+    // refreshPresetList used to reach for defaultSettings.presets[0]
+    // on a defaults object that had no presets field at all, which
+    // threw the first time the list was refreshed with no saved
+    // presets. The Default preset mirrors the scalar defaults above.
+    presets: [
+        {
+            name: "Default",
+            model: "zonos-v0.1-hybrid",
+            language_iso_code: "en-us",
+            speaking_rate: 15,
+            vqscore: 0.78,
+            speaker_noised: false
+        }
+    ],
+    active_preset: "Default"
 };
 
 function generateCharacterList() {
@@ -368,7 +385,15 @@ let loadingSegments = new Set();
 let currentPlayingSegmentIndex = -1;
 
 function resetTtsQueue(force = false) {
-    if (force || !shouldPreserveTtsQueue) {
+    // A soft reset (force false, which only the stream hook's start
+    // event sends) leaves a queue that is mid playback alone: those
+    // segments belong to the message on screen, and killing them
+    // because a new stream started would cut speech off mid sentence.
+    // Every other caller passes true. This condition used to read a
+    // preserve flag that was never defined anywhere in the file, so
+    // every soft reset threw a ReferenceError inside the host's event
+    // dispatch and the reset silently never happened.
+    if (force || !isPlayingTts) {
         console.log("Resetting TTS queue and stopping playback");
 
         if (currentAudio) {
@@ -1032,21 +1057,28 @@ function preloadTtsSegment(index) {
     const audioData = voices[voiceId]?.audioFiles[audioVariant]?.file;
     if (!audioData) {
         console.error(`No audio file found for preload: ${segment.character}, variant: ${audioVariant}`);
+        // The caller marked this index as loading before calling me.
+        // Every return out of this function has to clear that mark: a
+        // leaked mark makes the playback side wait forever for a
+        // preload that is never coming (it checks the set, sees the
+        // index, and waits instead of fetching the segment itself).
+        loadingSegments.delete(index);
         return;
     }
-    
+
     const emotions = mapEmotionsToZyphraFormat(segment.emotions);
 
-    if (extension_settings[extensionName].force_neutral_narrator && 
+    if (extension_settings[extensionName].force_neutral_narrator &&
         (segment.character === 'Narrator' || segment.type === 'n' || segment.type === 'a')) {
         console.log("Forcing neutral emotions for narrator");
         Object.keys(emotions).forEach(key => delete emotions[key]);
         emotions.neutral = 1.0;
     }
-    
+
     const apiKey = extension_settings[extensionName].api_key;
     if (!apiKey) {
         console.error("No API key set for TTSSorcery preload");
+        loadingSegments.delete(index);
         return;
     }
 
@@ -1113,9 +1145,9 @@ function preloadTtsSegment(index) {
         });
         
         console.log(`Successfully preloaded TTS segment ${index+1}/${ttsQueue.length}`);
-        
+
         loadingSegments.delete(index);
-        
+
         preloadTtsSegments();
     })
     .catch(error => {
@@ -1315,6 +1347,18 @@ async function loadSettings() {
             }
         };
     }
+
+    // Seed presets the same way voices are seeded above. The copies
+    // matter: handing out the defaultSettings objects themselves
+    // would let a preset edit rewrite the defaults for every future
+    // fresh install in this session.
+    if (!extension_settings[extensionName].presets) {
+        extension_settings[extensionName].presets = defaultSettings.presets.map(p => ({ ...p }));
+    }
+    if (!extension_settings[extensionName].active_preset) {
+        extension_settings[extensionName].active_preset = "Default";
+    }
+    refreshPresetList();
 
     $("#TTSSorcery_enabled").prop("checked", extension_settings[extensionName].enabled || false);
     $("#TTSSorcery_api_key").val(extension_settings[extensionName].api_key || "");
@@ -1863,7 +1907,7 @@ function onCounterInput(event) {
 
 function refreshPresetList() {
     if (!extension_settings[extensionName].presets) {
-        extension_settings[extensionName].presets = [defaultSettings.presets[0]];
+        extension_settings[extensionName].presets = defaultSettings.presets.map(p => ({ ...p }));
     }
     
     const presetNames = extension_settings[extensionName].presets.map(p => p.name);
@@ -2301,7 +2345,21 @@ jQuery(async () => {
                 
                 
                 <div class="tab-content" data-tab="settings">
-                    
+
+                    <div class="flex-container flexFlowColumn">
+                        <label for="TTSSorcery_preset_list">Preset</label>
+                        <select id="TTSSorcery_preset_list" class="text_pole"></select>
+                        <div class="flex-container">
+                            <input id="TTSSorcery_preset_new" class="menu_button" type="button" value="New Preset">
+                            <input id="TTSSorcery_preset_delete" class="menu_button" type="button" value="Delete Preset">
+                            <input id="TTSSorcery_preset_export" class="menu_button" type="button" value="Export Preset">
+                            <input id="TTSSorcery_preset_import" class="menu_button" type="button" value="Import Preset">
+                            <input id="TTSSorcery_preset_import_file" type="file" accept="application/json" style="display:none;">
+                        </div>
+                    </div>
+
+                    <hr class="sysHR">
+
                     <div class="flex-container flexFlowColumn">
                         <label for="TTSSorcery_model">Model Type</label>
                         <select id="TTSSorcery_model" class="text_pole">
@@ -2546,31 +2604,6 @@ function updateTTSSorceryPlaybackUI() {
     }
 }
 
-function processAudioJobQueue() {
-    if (audioJobQueue.length == 0 || !audioQueueProcessorReady || audioPaused) {
-        return;
-    }
-    try {
-        audioQueueProcessorReady = false;
-        currentAudioJob = audioJobQueue.shift();
-        playAudioData(currentAudioJob);
-        talkingAnimation(true);
-        updateTTSSorceryPlaybackUI();
-    } catch (error) {
-        toastr.error(error.toString());
-        console.error(error);
-        audioQueueProcessorReady = true;
-    }
-}
-
-function completeCurrentAudioJob() {
-    audioQueueProcessorReady = true;
-    currentAudioJob = null;
-    talkingAnimation(false);
-    updateTTSSorceryPlaybackUI();
-}
-
-
 function onTTSSorceryNarrateClick(event) {
     const messageBlock = $(event.target).closest('.mes');
     const messageId = messageBlock.attr('mesid');
@@ -2643,8 +2676,3 @@ function injectTTSSorceryRegexToRegexExtension() {
     saveSettingsDebounced();
     console.log(`${extensionName}: Successfully injected TTSSorcery regex pattern into Regex extension.`);
 }
-
-$("#TTSSorcery_auto_generation").on("change", function() {
-    extension_settings[extensionName].auto_generation = $(this).prop("checked");
-    saveSettingsDebounced();
-})

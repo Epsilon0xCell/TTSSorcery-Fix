@@ -72,3 +72,11 @@ This extension has lots of bugs and almost 80% depends on you having a smart mod
 - index.js passes node --check. It requires SillyTavern host modules (extensions.js, script.js, power-user.js, openai.js, lib.js), so it cannot run standalone outside SillyTavern.
 - The Zyphra API is called over HTTPS at https://api.zyphra.com/v1/audio/text-to-speech. Earlier revisions used plain HTTP, which would have sent the API key unencrypted.
 - Event handlers for CHAT_COMPLETION_PROMPT_READY and STREAM_TOKEN_RECEIVED are registered once. Earlier revisions registered them twice, which could inject instructions twice.
+- Presets ship with a seeded Default preset, and the settings panel carries the preset controls (list, new, delete, export, import) the handlers bind to. Earlier revisions had no presets field and no controls, so the preset handlers threw on a fresh install.
+- A stream start no longer throws. The soft queue reset used to read a flag that was never defined, so the reset died inside the host event dispatch every time a stream began.
+
+## Tests
+
+The test/ folder holds a Node test suite that runs index.js against a stub SillyTavern host (test/harness.mjs builds the fake host tree the extension imports expect). It covers preset seeding and the preset panel actions, instruction injection, stream resets, message parsing and segmentation, the Zyphra request bodies, voice fallback, and queue drain. Run it with Node 20 or newer:
+
+    node --test test/ttssorcery.test.mjs test/presets-import.test.mjs
