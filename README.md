@@ -1,10 +1,12 @@
-![The wings at rest, a minute before the house opens](intro-banner.png)
+![Intro scenery: the tuning hammer seated on one pin among rows of pins, a hand lifting the red felt mute from the strings it has just set right](intro-banner.png)
 
 
 
 # TTSSorcery
 
-![Wordmark banner](banner.png)
+![Wordmark banner: a grand piano with its lid raised in a tuning workshop, rows of steel strings and ivory keys exposed and a red felt mute resting on the frame](banner.png)
+
+<p align="center"><img src="logo.png" alt="TTSSorcery-Fix logo: the open top of a black piano with a crimson felt strip laid across its steel strings and a tuning hammer resting on one pin" width="200"></p>
 
 ![Animated scene](scene.svg)
 

@@ -3,58 +3,74 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TTSSorcery-Fix: Stage Weight and Fly Rail Crew</title>
-<meta name="description" content="The fix build of TTSSorcery, a SillyTavern extension. Stations along a working rail: the job, the lift, the repair ledger, and running it.">
+<title>TTSSorcery-Fix: The Tuning Bench</title>
+<meta name="description" content="The fix variant of the TTSSorcery SillyTavern extension: multi-speaker, multi-emotion text to speech through Zyphra's API as a reply streams, with a reworked index.js, an added model_instructions.md, and its own test suite.">
 <style>
-@font-face{font-family:'Arbutus';src:url('fonts/Arbutus.ttf') format('truetype');}
-@font-face{font-family:'Barlow';src:url('fonts/Barlow.ttf') format('truetype');}
-:root{--black:#0a0908;--crim:#9e1b32;--gold:#d4af37;--dust:#cbbfa5;--board:#57432c;--cream:#e8dfc8}
-*{box-sizing:border-box} body{margin:0;background:var(--black);color:var(--dust);font-family:'Barlow',sans-serif;line-height:1.65}
-h1,h2{font-family:'Arbutus',serif;font-weight:400}
-.hero{padding:2rem 6vw 0;max-width:1000px;margin:0 auto}.hero img.banner{width:100%;height:auto}
-.logo{width:92px;height:92px}
-main{padding:0 6vw 3rem;max-width:1000px;margin:0 auto}
-.station{background:#171310;border:1px solid #3a2f22;padding:1.4rem 1.6rem;margin:2.2rem auto;max-width:56rem;position:relative}
-.station:before{content:'';position:absolute;top:0;left:0;right:0;height:5px;background:var(--crim)}
-.station h2{color:var(--cream);margin-top:.4rem}
-.station .no{position:absolute;top:12px;right:16px;color:#6d5c3e;font-family:'Arbutus',serif}
-table{border-collapse:collapse;width:100%} td{border-top:1px solid #3a2f22;padding:.55rem .6rem;vertical-align:top} td:first-child{color:#e8b7bf;width:46%}
-.btn{display:inline-block;background:var(--dust);color:#141210;font-family:'Arbutus',serif;text-decoration:none;padding:.5rem 1.6rem .5rem 1.1rem;border-radius:20px;position:relative;margin:.3rem .4rem .3rem 0;box-shadow:inset -14px 0 0 -6px #a8946a}
-.btn:after{content:'';position:absolute;right:5px;top:50%;transform:translateY(-50%);width:12px;height:12px;border:3px solid #8a764e;border-radius:50%}
-.btn:hover{background:linear-gradient(90deg,#e8c87a,var(--dust) 55%)}
-.btn:active{transform:translateY(2px)} .btn:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
-a{color:#e8c87a} a:before{content:'';display:inline-block;width:.55em;height:.55em;border:2px solid currentColor;border-radius:50%;margin-right:.4em}
-a:hover:before{background:var(--gold)} .btn:before{content:none}
-.rail{border-top:10px solid #2c2318;margin:2.4rem auto;position:relative;max-width:56rem}
-.rail i{position:absolute;top:-16px;width:14px;height:26px;background:var(--dust);border-radius:6px}
-.rail.short{max-width:22rem}
-code{background:rgba(203,191,165,.14);padding:.05em .35em;border-radius:3px}
-pre{background:#000;padding:1rem;overflow-x:auto;border:1px solid #3a2f22}
-footer{padding:2rem 6vw;max-width:1000px;margin:0 auto}
+@font-face{font-family:'Podkova';src:url('fonts/Podkova-500.woff2') format('woff2');font-weight:500}
+@font-face{font-family:'Podkova';src:url('fonts/Podkova-700.woff2') format('woff2');font-weight:700}
+@font-face{font-family:'Podkova';src:url('fonts/Podkova-800.woff2') format('woff2');font-weight:800}
+@font-face{font-family:'Noto Sans';src:url('fonts/NotoSans-400.woff2') format('woff2');font-weight:400}
+@font-face{font-family:'Noto Sans';src:url('fonts/NotoSans-600.woff2') format('woff2');font-weight:600}
+@font-face{font-family:'Noto Sans';src:url('fonts/NotoSans-700.woff2') format('woff2');font-weight:700}
+:root{--black:#141216;--black2:#221f26;--ivory:#f7f1e2;--card:#fdfaf1;--ink:#2e2a26;--steel:#5d6066;--crimson:#b02334;--crimsondk:#7e1624;--line:#e0d5bd}
+*{box-sizing:border-box} body{margin:0;background:var(--black);color:var(--ink);font-family:'Noto Sans',sans-serif;line-height:1.65}
+h1,h2{font-family:'Podkova',serif;color:#26221f}
+.hero{background:linear-gradient(168deg,#0d0b0f 0%,var(--black) 60%,var(--black2) 100%);padding:2.2rem 6vw 1.8rem}
+.hero .inner{max-width:1020px;margin:0 auto}
+.hero img.wide{width:100%;height:auto;display:block;border:6px solid var(--ivory);border-radius:4px;box-shadow:0 4px 18px rgba(0,0,0,.55)}
+.hero .row{display:flex;gap:1.1rem;align-items:flex-start;margin-top:1.2rem}
+.hero .row img{width:92px;height:92px;object-fit:cover;border-radius:6px;border:3px solid var(--ivory);background:var(--ivory)}
+.hero h1{margin:.1rem 0 .3rem;font-size:2.6rem;color:var(--ivory)}
+.hero p{max-width:44rem;color:#ddd3ba}
+main{padding:0 6vw 3rem;max-width:1020px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-left:6px solid var(--steel);border-radius:6px;padding:1.2rem 1.5rem;margin:1.6rem 0;box-shadow:0 2px 10px rgba(0,0,0,.4)}
+.card.felt{border-left-color:var(--crimson)}
+.card h2{margin:.1rem 0 .5rem;font-size:1.9rem;font-weight:700}
+.card p{margin:.4rem 0}
+.strip{background:#17141a;color:#f0e7cf;padding:1rem 1.2rem;overflow-x:auto;font-family:ui-monospace,Menlo,monospace;border-radius:4px;border-left:6px solid var(--crimson)}
+.btn{display:inline-block;background:var(--crimson);color:#fff6ec;font-family:'Noto Sans',sans-serif;font-weight:700;text-decoration:none;padding:.55rem 1.1rem;border-radius:999px;margin:.3rem .4rem .3rem 0}
+.btn:hover{background:var(--crimsondk);color:#fff6ec}.btn:active{transform:translateY(2px)}
+.btn:focus-visible{outline:2px dashed var(--crimson);outline-offset:3px}
+a{color:var(--crimsondk);font-weight:700}
+ol{margin:.4rem 0;padding-left:1.3rem}ul{margin:.4rem 0;padding-left:1.2rem}li{margin:.3rem 0}
+table{border-collapse:collapse}td{padding:.2rem .9rem .2rem 0;vertical-align:top}
+td:first-child{font-weight:700;color:var(--crimsondk);white-space:nowrap}
+.small{font-size:.92rem}
+footer{padding:0 6vw 2.5rem;max-width:1020px;margin:0 auto;color:#9a8f78}
 </style>
 </head>
 <body>
 <header class="hero">
-<img class="logo" src="assets/logo.png" alt="Belaying pin with a rope wrap and a coil on the boards">
-<img class="banner" src="assets/banner.png" alt="The fly rail during a scene change, with the playbill for TTSSorcery-Fix on the back wall">
-<h1>TTSSorcery-Fix</h1>
-<p>The repair build, billed like a show and worked like a rail. Every line here is tied off: what the extension does, how a line gets spoken, what was broken, and what was re-tied.</p>
-<p><a class="btn" href="https://github.com/Epsilon0xCell/TTSSorcery-Fix">Open the repo</a> <a class="btn" href="#ledger">The repair ledger</a></p>
+<div class="inner">
+<img class="wide" src="assets/intro-banner.png" alt="The tuning hammer seated on one pin among rows of pins, a hand lifting the red felt mute from the strings it has just set right">
+<div class="row"><img src="assets/logo.png" alt="TTSSorcery-Fix logo: the open top of a black piano with a crimson felt strip laid across its steel strings and a tuning hammer resting on one pin"><div><h1>TTSSorcery-Fix</h1><p>The fix variant of the TTSSorcery SillyTavern extension. It does the same job, multi-speaker, multi-emotion text to speech generated through Zyphra's API as a reply streams, but each string has been tested and adjusted until the instrument sounds as one again: a reworked index.js, an added model_instructions.md, and its own test suite.</p><p><a class="btn" href="https://github.com/Epsilon0xCell/TTSSorcery-Fix">Open the repo</a> <a class="btn" href="#proof">The tests</a></p></div></div>
+</div>
 </header>
 <main>
-<div class="rail" aria-hidden="true"><i style="left:12%"></i><i style="left:38%"></i><i style="left:63%"></i><i style="left:88%"></i></div>
-<section class="station"><span class="no">Station I</span><h2>The job itself</h2><p>This repository is the fix build of TTSSorcery, a SillyTavern extension in <code>index.js</code>, <code>style.css</code>, and <code>manifest.json</code>, plus one extra file the other build does not carry: <code>model_instructions.md</code>, a standalone copy of the marker instructions template. It has no connection to the speech feature SillyTavern ships with, and chat completions are the only generation mode it supports.</p></section>
-<section class="station"><span class="no">Station II</span><h2>How a line gets spoken: a lift in four moves</h2><p>A prompt is injected so the model writes markers into its streamed reply. The template in <code>model_instructions.md</code> defines three kinds: a narrator marker naming voice file and emotion values, an action marker for narration without emotion values, and a character marker naming the character, the voice file, and the values, with shorter repeat forms allowed after a first full appearance. Unknown characters fall back to the Narrator with <code>default.mp3</code>, and a missing voice file falls back to <code>default.mp3</code>.</p><p>The extension parses the markers, posts each segment to Zyphra at <code>https://api.zyphra.com/v1/audio/text-to-speech</code>, and plays the returned audio in order while the reply is still streaming. Emotion values run from e1 to e8, happiness at the head of the list and neutral at its foot, with sadness, disgust, fear, surprise, anger, and other in between, each scored from 0.0 to 1.0.</p></section>
-<div class="rail short" aria-hidden="true"><i style="left:30%"></i><i style="left:62%"></i></div>
-<section class="station" id="ledger"><span class="no">Station III</span><h2>The repair ledger</h2><table>
-<tr><td>The manifest declared style.css while no stylesheet shipped, so the file failed to load.</td><td>The stylesheet is present now.</td></tr>
-<tr><td>Preset handlers reached for a presets field and panel controls that a fresh install did not have, and threw.</td><td>A Default preset is now seeded and the settings panel carries list, new, delete, export, and import controls for presets.</td></tr>
-<tr><td>A soft queue reset at stream start read a flag that was never defined, so the reset died inside the host event dispatch every time a stream began.</td><td>That read is fixed.</td></tr>
-<tr><td>Event handlers for the prompt ready and stream token events were registered twice in earlier revisions, risking instructions injected twice.</td><td>They are registered once.</td></tr>
-<tr><td>The Zyphra call once ran over plain HTTP, which would have sent the API key unencrypted.</td><td>It runs over HTTPS now.</td></tr>
-</table></section>
-<section class="station"><span class="no">Station IV</span><h2>Running it, and the limits that remain</h2><p>Setup: a Zyphra key from the free tier at 100 minutes a month placed in the extension settings, at least one Narrator voice sample uploaded, character voices added, the extension enabled, and auto generation only while streaming is on, with manual generation from the wand icon. It cannot run outside SillyTavern, since index.js imports host modules by relative path.</p><p>The bug warning stays: the extension carries many bugs, leans heavily on a capable model placing markers correctly, and was tested only against a short list of Claude models and Gemini Pro.</p><p>Tests: a Node suite under <code>test/</code> that loads index.js against a stub host tree, run on Node 20 or newer with <code>node --test test/ttssorcery.test.mjs test/presets-import.test.mjs</code>, covering preset seeding and panel actions, instruction injection, stream resets, parsing and segmentation, Zyphra request bodies, voice fallback, and queue drain.</p></section>
+<section class="card"><h2>How it works</h2><ol>
+<li>A prompt is injected to make the AI add special text to speech markers to the text: <code>§c:Character|happy.mp3|e1:0.8§</code></li>
+<li>These markers tell the extension who is speaking, which voice file to use, and in what emotion.</li>
+<li>The extension processes these markers and sends them to Zyphra's API, over HTTPS at api.zyphra.com/v1/audio/text-to-speech.</li>
+<li>Zyphra returns audio files that are played in order.</li>
+</ol><p>It uses the method and some code and prompts from <a href="https://github.com/p-e-w/sorcery">p-e-w/sorcery</a>, attributed in the repo. It is NOT integrated or compatible with SillyTavern's built in text to speech, and only works with chat completions for now.</p></section>
+<section class="card felt"><h2>What the fix pass set right</h2><ul>
+<li><strong>The stylesheet ships.</strong> Earlier revisions declared style.css in the manifest but did not include the file, so the stylesheet would have failed to load. It is present here, and the manifest declares index.js and style.css, both on disk.</li>
+<li><strong>The Zyphra call runs over HTTPS.</strong> Earlier revisions used plain HTTP, which would have sent the API key unencrypted.</li>
+<li><strong>Handlers register once.</strong> The CHAT_COMPLETION_PROMPT_READY and STREAM_TOKEN_RECEIVED handlers are registered a single time; earlier revisions registered them twice, which could inject the instructions twice.</li>
+<li><strong>Presets work on a fresh install.</strong> Presets ship with a seeded Default preset, and the settings panel carries the preset controls (list, new, delete, export, import) the handlers bind to. Earlier revisions had no presets field and no controls, so the preset handlers threw on a fresh install.</li>
+<li><strong>A stream start no longer throws.</strong> The soft queue reset used to read a flag that was never defined, so the reset died inside the host event dispatch every time a stream began.</li>
+<li><strong>The instructions stand alone.</strong> model_instructions.md holds the standalone copy of the TTS marker instructions template the extension uses.</li>
+</ul></section>
+<section class="card"><h2>Set it up</h2><ol>
+<li>Get a Zyphra API key (the free tier gives 100 minutes a month).</li>
+<li>Add your API key in the extension settings.</li>
+<li>Upload at least one voice sample for the Narrator.</li>
+<li>Add character voices as needed.</li>
+<li>Enable the extension.</li>
+</ol><p>Features carried over from the extension: voice cloning from any audio sample, audio variants per emotion with no limit, emotion values across eight emotions (Happiness, Sadness, Disgust, Fear, Surprise, Anger, Other, Neutral), six languages (English, Japanese, Chinese, French, German, Korean), and preloading so playback does not pause mid generation. Auto generation works while streaming is enabled; the wand icon generates manually.</p></section>
+<section class="card" id="proof"><h2>The tests</h2><div class="strip">node --test test/ttssorcery.test.mjs test/presets-import.test.mjs</div><p>14 tests in the test/ folder, run with Node 20 or newer. test/harness.mjs builds the fake host tree the extension imports expect, and the suite runs the real index.js against that stub SillyTavern host. It covers preset seeding and the preset panel actions, instruction injection, stream resets, message parsing and segmentation, the Zyphra request bodies, voice fallback, and queue drain.</p></section>
+<section class="card"><h2>The files</h2><p class="small"><code>index.js</code>, the reworked extension (109,419 bytes, against 111,637 in the extension repo). <code>manifest.json</code>, the extension manifest, identical at 256 bytes to the extension repo's. <code>style.css</code>, the extension styles. <code>model_instructions.md</code>, the marker instructions template. <code>test/</code>, the harness and suite. <code>LICENSE</code>, the MIT license. The sibling repo is <a href="https://github.com/Epsilon0xCell/TTSSorcery-Extension">TTSSorcery-Extension</a>; the full notes are in the <a href="https://github.com/Epsilon0xCell/TTSSorcery-Fix">repo README</a>.</p></section>
 </main>
-<footer><p>The flat has reached its mark and is tied off, the border hangs straight, and the spoken reply finished with every voice back in its place.</p></footer>
+<footer><p>One string at a time is tested, adjusted, and set back in tune with all the others, which is what a fix pass does to a chorus of generated voices.</p></footer>
 </body>
 </html>
